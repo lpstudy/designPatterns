@@ -1,0 +1,76 @@
+单例模式：
+	确保程序的某一个类在运行的时候只生成一个对象，拥有对它类似于全局对象的访问权限。
+模式分析：
+	例如很多时候我们在写程序的时候会有类似于DriverManager，CallManager等等这样的管理类，它们主要的功能就是为了管理一堆相似的对象。对于这种管理类，一个程序一般只有一个对象，毕竟我们写出管理类的目的就是为了便于管理，管理类的对象多了也就失去了管理的意义了，而且还有一点我们在程序中肯定会有很多地方需要直接访问到这个对象，毕竟一个程序很多地方都需要通过管理类找到对应的Driver，对应的Call等等。
+解决方案：
+	1，最简单的我们可能定义一个全局对象
+		通过CallManager g_CallManager;创建一个全局对象，然后在需要地方通过extern CallManager g_CallManager;来获取它的访问权限。咋听起来不错，但是从第一次写程序的时候，就会有很多经验丰富的老手告诉我们全局对象的各种弊端，而且我们也没有办法确保对象只有一个，毕竟你可以在代码中随时通过CallManager myManager这样类似代码来创建对象。
+	2，单例模式
+	class CallManager
+	{
+	public:
+			static CallManager* GetInstance(){
+				if(instance_ == NULL){//注意这个只有在第一次调用才会创建对象
+					instance_ = new CallManager();
+				}	
+				return instance_;
+			}
+	private:
+		 static CallManager* instance_;//注意这个为静态私有对象
+		 CallManager();//注意这个为私有
+	}
+	static CallManager* CallManager::instance_ = NULL;
+		
+分析：
+	为了确保你不能在外部通过CallManager myManager等等其它类似的方案创建对象，其将构造函数定义为私有的，这样就禁止了外部的显式构造创建对象，根本编译不过去。那你可能会问，那我还怎么创建对象呢，毕竟我还需要一个对象。强大的GetInstance方法出现了，它通过访问自己类的静态成员instance_是否为空来决定是否创建对象，这样可以给我们两个保证：1，你可以创建对象，而且只会创建一个，2你可以在其他任何地方访问到这个对象，通过GetInstance方法。如果你不是很懂静态成员变量和静态数据成员，建议找一些相关的文档看一下，加深理解。静态成员变量instance_给予我们一个类只有一个变量的限制，静态成员函数GetInstance给予我们访问私有静态成员变量instance_的权利，同时还保证了只有一个对象被创建。
+延伸：
+	1，如果你懂多线程，那么你应该会发现上文中的代码的问题，如果GetInstance方法同时被两个地方调用，那么就有可能同时new两次，这个是不可取的。通常的解决办法是GetInstance方法在系统初始化的时候就调用一次，确保对象的创建。我感觉这种方法很好，相当不建议用lock，因为这个方法用的地方会很多，加lock会很严重影响本来的效率。
+	2，new的CallManager什么时候会被释放？对于这种情况，我的建议是再创建一个静态Destory方法，负责delete instance_。
+		static void DestroyInstance(){
+			delete instance_;
+			instance_ = NULL;
+		}	
+	3，调用DestroyInstance有点繁琐，毕竟需要考虑在什么地方调用，出现异常没有调用等等一些问题，那倒不如把这个问题抛给系统吧。使用局部静态对象。
+	public:
+		CallManager* GetInstance(){
+			static CallManager localManager;
+			return &localManager;
+		}
+	通过这种局部静态的使用既省去了DestroyInstance的调用，同时可以确保它一定会被释放，还省去了instance_成员变量，何乐而不为呢？建议采用。
+	不过依然需要注意，GetInstance依然初始化需要调用一次，免去多线程的困扰，局部静态对象只有在第一次调用的时候才会分配内存，可以通过在Callma的构造函数打印日志来验证这个结论。
+	
+	静态变量版本：
+		#include <stdio.h>
+		
+		class CallManager
+		{
+		public:
+			static CallManager* GetInstance(){
+				static CallManager localManager;
+				return &localManager;
+			}
+			~CallManager(){
+				printf("CallManager Destructed...\n");
+			}
+		private:
+			CallManager(){//注意这个为私有
+				printf("CallManager Constructed...\n");
+			}
+		};
+	请注意虽然我将函数的实现写在了类的声明里面，但是请注意这并不是我本意。我是为了简单，其实应该分成h和cpp文件的，这样可以降低编译依赖，而且默认内联也不是我们想要的，具体的细节不再赘述。
+	main驱动程序：
+		#include <assert.h>
+		#include <CallManager.h>
+		int main(){
+			CallManager* pCallManager  = CallManager::GetInstance();
+			CallManager* pCallManager2 = CallManager::GetInstance();
+			assert(pCallManager == pCallManager2);//确认是完全一样
+			return 0;
+		}
+	输出结果：
+		CallManager Constructed...
+		CallManager Destructed...
+		与我们所想一致，由初始化构建，只构建一次，在main结束之后被自动释放。Wonderful。
+			
+后记：
+	不知道我的这种叙述方式会不会有点过于口语化了，我只想把我在学习它的时候的所得所思所获说出来，跟大家探讨一下，有些经验希望能给大家带来哪怕小小的帮助，描述的过程同样是我再次回顾我的思路的过程，有错误欢迎指出，让我也纠正我的错误，谢谢。

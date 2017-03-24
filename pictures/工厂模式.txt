@@ -1,0 +1,161 @@
+简单工厂模式：
+创建多种不同类型的产品，根据传入参数的类型进行创建。
+	只有一个Creator方法，负责多种不同的产品的创建，传入参数的类型来决定具体创建哪种产品，实现简单，但是如果需要扩展产品的话，就需要修改Creator方法的实现。
+有一个Pizza店，可以生产不同种类的Pizza，对于此代码简单如下：
+	//这是一个抽象的pizza，有很多不同种类的pizza，继承于它。
+	class AbstractPizza
+	{
+	public:
+		AbstractPizza(void);
+		virtual ~AbstractPizza(void);
+		virtual void Taste() = 0;
+		int m_nPizzaType;
+	};
+
+	//具体的pizza，继承于抽象pizza。还有其他的多种不同类型的Pizza。
+	class CheesePizza : public AbstractPizza
+	{
+	public:
+		CheesePizza(void);
+		~CheesePizza(void);
+		void Taster(){
+			printf("Cheese taste\n");
+		}
+	};
+	
+	为了我们更好的管理Pizza的创建过程，一般我们会创建一个管理类，它负责创建不同种类的pizza产品。通过SimplePizzaFactory工厂的管理，我们通过传入不同的类型就可以不同种类的pizza产品，外部的调用者只需要传入类型，Creator方法就会返回正确的AbstractPizza的具体类型。甚至于你可以将SimplePizzaFactory定义为单例模式(如果工厂需要数据成员的话)便于以全局变量的方式使用。或者将CreatePizzaByType定义为静态方法(如果没有相关任何数据成员)，这样的话就不用创建任何工程对象，直接SimplePizzaFactory::CreatePizzaByType(nPizzaType)就可以，操作更简答。它既然叫简单工厂，确实足够简单，只有一个Creator方法(不过不能叫做工厂方法，注意没有继承)，当有新的产品添加进来，必须需要修改Creator方法，以满足新的产品创建的需要，不过说实话这种简单工厂模式对于平常的很多程序都足够。
+	class SimplePizzaFactory
+	{
+	public:
+		enum PizzaType{
+			CheesePizzaTpe,
+			GreekPizzaType,
+			PipperPizzaType,
+			//..可以继续后续添加
+		};
+		SimplePizzaFactory(void);
+		~SimplePizzaFactory(void);
+		AbstractPizza* CreatePizzaByType(PizzaType type){
+			switch (type)
+			{
+			case SimplePizzaFactory::CheesePizzaTpe:
+				{
+					return new CheesePizza;
+					//if you want, you can do additional initialization for new CheesePizza;
+					//like: 
+					//AbstractPizza* pizza = new CheesePizza;
+					//assert(pizza);
+					//pizza->Initialize();
+				}
+			case SimplePizzaFactory::GreekPizzaType:
+				{
+					return new GreekPizza;
+					//if you want, you can do additional initialization for new CheesePizza;
+				}
+			case SimplePizzaFactory::PipperPizzaType:
+				{
+					return new PipperPizza;
+					//if you want, you can do additional initialization for new CheesePizza;
+				}
+			default:
+				break;
+			}
+		}
+};
+
+工厂方法模式：
+	对扩展开放，对修改关闭，对于上面的简单工厂，creator方法以后可能需要修改，因此我们可以通过将要改的方面单独提炼出来。这就构造出了工厂方法模式。有一个抽象的工厂方法，它的出现将外部的调用统一化，由具体的工厂负责产品的创建过程。工厂方法模式就是将产品的创建过程延迟到子类，由子类负责具体的产品创建，而且一种工厂只生产一种产品。具体工厂和具体产品一一对应，抽象的Creator方法和抽象的产品对应。
+	这经常用在抽象类中，专为创建对象定义一个方法。子类就可以覆盖这个方法来定义要创建的特定对象。通常与模板方法和并使用，模板方法在定义模板算法时一般需要先创建产品，然后再利用产品的方法创建一个流程。
+	
+	一个抽象产品类，可以派生出多个具体产品类。 
+	一个抽象工厂类，可以派生出多个具体工厂类。 
+	每个具体工厂类只能创建一个具体产品类的实例。
+	
+	还用上面的例子，现在首先需要一个抽象的Creator方法，你可以把它看成一个抽象工厂，其实也是它是一个特殊的抽象工厂，只生产一种产品.
+	不过下面的比普通的工厂方法模式又稍微高级了一点，它是参数化的工厂方法模式，灵活性更大。
+	class PizzaFactory
+	{
+	public:
+		enum PizzaType{
+			CheesePizzaTpe,
+			GreekPizzaType,
+			PipperPizzaType,
+		};
+		PizzaFactory(void);
+		~PizzaFactory(void);
+		AbstractPizza* PizzaFactory(PizzaType type)();
+};
+	
+	//具体的工厂，负责生产BeiJing的pizza。
+	class BeiJingPizzaFactory : public PizzaFactory
+	{
+	public:
+
+		BeiJingPizzaFactory(void);
+		~BeiJingPizzaFactory(void);
+		AbstractPizza* CreatePizzaByType(PizzaType type)(){
+			switch (type){
+				case PizzaFactory::CheesePizzaTpe:
+					return new BeiJingCheesePizza;
+			case PizzaFactory::GreekPizzaType:
+					return new BeiJingGreekPizza;
+			case PizzaFactory::PipperPizzaType:
+					return new BeiJingPipperPizza;
+			default:
+				return NULL;
+			};
+		}
+	};
+	关于BeiJingCheesePizza， BeiJingGreekPizza， BeiJingPipperPizza这些就不写了，就是继承于抽象的Pizza。
+	
+对扩展开放，对修改关闭:	
+	如果再有天津的，河南的，意大利的等等Pizza。通过使用工厂方法模式，以后即使再有其他地区的pizza店，只需要添加另外的一个具体工厂和具体的产品就行了。不要纠结于增加新的PizzaType怎么办？工厂方法模式专注的点是有新地区的产品，而不是有新的PizzaType。因为最基本的工厂方法模式是一个工厂一个产品，一一对应。如果想着眼于type而忽略地区，可以考虑一种PizzaType一个Pizza工厂，那样添加了新的type，就添加新的工厂和产品就可以了，完美符合对扩展开放，对修改关闭。
+子类实例化：
+	工厂方法模式对外部提供的是一个工厂方法，它是一个抽象接口，这样外部依赖的就是抽象而不是具体，减少代码耦合性。将具体的new的操作放到子类工厂来实现。
+应用：
+	说实话，找应用费了好久，毕竟整天Pizza，Pizza的很难给我们以启发，仅仅是知道模式，而没有看到它的巨大潜力和价值。
+	学习MFC的都知道Document和Application的关系。不同的Application对应不同的Document。app负责创建doc。app就是工厂，doc就是产品，一个工厂一个产品。
+	
+	//App是工厂，它保存着创建的产品
+	//App
+	class Application
+	{
+	public:
+		void OpenDocument(){//模板方法
+			m_pDoc = CreateDocment();
+			m_pDoc->Open();
+			m_pDoc->Read();
+		}
+		void CloseDocument(){//模板方法
+			m_pDoc->Write();
+			m_pDoc->Close();
+		}
+	private:
+		virtual Document* CreateDocment() = 0;//工厂方法
+	private:
+		Document* m_pDoc;//这个
+	}
+	
+	//抽象产品类，文档可以打开关闭，读写。
+	class Document 
+	{
+	public:
+		void Open();
+		void Close();
+		void Read();
+		void Write();
+	}
+	解释：
+		上面两个类一看到就会有种欣喜的感觉，将模板方法和工厂方法完美的组合了起来。工厂方法关心的是创建对象，由具体的工厂MyApp负责创建实现具体的产品MyDocument.同时，模板方法OpenDocument面向抽象的创建接口编程，负责定义了一套算法，子类继承了Application，就继承了一套算法，子类不用关心算法执行的步骤，子类只需要实现方法，父类负责调用子类的方法。
+		像经常看到的状态机代码，状态机的跳转流程是由预先定义的流程定义的，但是OnStateEnter和OnStateExit这样的方法的实现是由具体应用定义的。父类负责调用子类OnStateEnter和OnStateExit方法的具体的实现，模板方法的典型应用。
+		
+抽象工厂：
+	抽象工厂关注的是创建一系列的产品，它是使用工厂方法实现的，不过是拥有多个工厂方法。
+	代码就不写了。
+总结(摘录的一段，感觉写的不错，地址 http://stan001140.iteye.com/blog/1737817):
+	简单工厂能把具体实现包装起来，让客户端真正达到面向接口编程 
+	工厂方法可以在高层进行编码，让服务端的产品线真正达到面向接口编程 
+	抽象工厂能聚合整个产品簇，让整个服务端的多个产品线真正达到面向接口编程 
+	模板方法同样是在高层进行编码，也同样是面向接口编程。 
+	但工厂方法及抽象工厂方法着重抽象的是产品，而模板方法着重抽象的是步骤。 
+	而我们通常会两者一起结合起来使用。
